@@ -101,6 +101,9 @@ final class ScanCoordinator: NSObject, ObservableObject {
     // RoomCaptureViewDelegate inherits from NSCoding, so any delegate
     // must provide these, even though RoomPlan never actually encodes
     // or decodes the coordinator. They are intentionally unimplemented.
+    // Note: adding the coder init suppresses NSObject's inherited init(),
+    // so the plain no-arg init has to be declared explicitly too.
+    override init() { super.init() }
     func encode(with coder: NSCoder) {}
     required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
 
