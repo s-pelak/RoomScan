@@ -98,6 +98,12 @@ final class ScanCoordinator: NSObject, ObservableObject {
     @Published var isScanning = false
     @Published var latestRoom: CapturedRoom?
 
+    // RoomCaptureViewDelegate inherits from NSCoding, so any delegate
+    // must provide these, even though RoomPlan never actually encodes
+    // or decodes the coordinator. They are intentionally unimplemented.
+    func encode(with coder: NSCoder) {}
+    required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
+
     var onFinished: ((RoomScan, Data?) -> Void)?
     var onError: ((Error) -> Void)?
 
