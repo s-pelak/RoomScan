@@ -9,6 +9,7 @@
 // unless the user explicitly shares it.
 
 import Foundation
+import SwiftUI
 import UIKit
 
 // MARK: - Muse-ready JSON model

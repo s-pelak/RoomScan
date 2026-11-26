@@ -15,6 +15,16 @@ import simd
 // MARK: - Conversion: CapturedRoom -> RoomScan
 
 enum CapturedRoomConverter {
+    /// RoomPlan confidence is a low/medium/high label, not a number.
+    static func confidenceValue(_ confidence: CapturedRoom.Confidence) -> Double {
+        switch confidence {
+        case .low: return 0.33
+        case .medium: return 0.66
+        case .high: return 1.0
+        @unknown default: return 0.5
+        }
+    }
+
     static func roomScan(from captured: CapturedRoom, name: String) -> RoomScan {
         let walls: [Wall] = captured.walls.map { wall in
             Wall(
@@ -46,7 +56,7 @@ enum CapturedRoomConverter {
         }
 
         let furniture: [FurnitureItem] = captured.objects.map { object in
-            let category = FurnitureCategory.fromRoomPlan("\(object.category)")
+            let category = FurnitureCategory.fromRoomPlan(String(describing: object.category))
             return FurnitureItem(
                 id: object.identifier,
                 name: category.displayName,
@@ -55,7 +65,7 @@ enum CapturedRoomConverter {
                 size: Size3(object.dimensions),
                 rotationDegrees: RoomGeometry.yawDegrees(from: object.transform),
                 detectedByRoomPlan: true,
-                confidence: Double(object.confidence)
+                confidence: confidenceValue(object.confidence)
             )
         }
 
@@ -92,26 +102,28 @@ final class ScanCoordinator: NSObject, ObservableObject {
     var onError: ((Error) -> Void)?
 
     private var captureView: RoomCaptureView?
-    private var session: RoomCaptureSession?
     private let configuration = RoomCaptureSession.Configuration()
 
     func attach(to view: RoomCaptureView) {
         captureView = view
-        let session = RoomCaptureSession(configuration: configuration, delegate: self)
-        self.session = session
-        view.captureSession = session
+        // RoomCaptureView owns its session — it is get-only, you do not
+        // create or assign one. The view's session is the one to run/stop,
+        // and this coordinator is its delegate (Kodeco / Apple WWDC pattern:
+        // roomCaptureView.captureSession.run(configuration:),
+        // roomCaptureView.captureSession.delegate = self).
         view.delegate = self
+        view.captureSession.delegate = self
     }
 
     func start() {
-        session?.run(configuration: configuration)
+        captureView?.captureSession.run(configuration: configuration)
         isScanning = true
     }
 
     func stop() {
         // Stopping triggers RoomCaptureViewDelegate's didPresent callback
         // with the post-processed CapturedRoom.
-        session?.stop()
+        captureView?.captureSession.stop()
         isScanning = false
     }
 }
@@ -136,23 +148,10 @@ extension ScanCoordinator: RoomCaptureSessionDelegate {
     }
 
     func captureSession(_ session: RoomCaptureSession, didProvide instruction: RoomCaptureSession.Instruction) {
-        // Friendly wording for the common instructions; fall back to the raw value.
-        switch instruction {
-        case .moveCloseToWall:
-            self.instruction = "Move closer to a wall."
-        case .moveAwayFromWall:
-            self.instruction = "Move away from the wall a little."
-        case .slowDown:
-            self.instruction = "Slow down a little."
-        case .turnOnLight:
-            self.instruction = "Turn on more light in the room."
-        case .lowTexture:
-            self.instruction = "Point at something with more detail — a plain wall is hard to track."
-        case .normal:
-            self.instruction = "Looking good — keep moving slowly around the room."
-        @unknown default:
-            self.instruction = "Keep moving slowly around the room."
-        }
+        // RoomPlan already shows its own guidance in the capture view.
+        // Keep a generic line here instead of switching on instruction
+        // cases, whose names differ between SDK versions.
+        self.instruction = "Keep moving slowly around the room."
     }
 
     func captureSession(_ session: RoomCaptureSession, didEndWith data: CapturedRoomData, error: Error?) {
