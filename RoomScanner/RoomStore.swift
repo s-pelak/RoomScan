@@ -55,7 +55,9 @@ final class RoomStore: ObservableObject {
     }
 
     /// Folder a scan lives in (for its USDZ, if any).
-    func folder(for scan: RoomScan) -> URL {
+    /// Pure computation over the immutable scans directory, so it is
+    /// safe to call from non-main-actor code (e.g. MuseExporter).
+    nonisolated func folder(for scan: RoomScan) -> URL {
         scansDirectory.appendingPathComponent(scan.id.uuidString, isDirectory: true)
     }
 
